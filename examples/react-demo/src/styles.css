@@ -1,0 +1,71 @@
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  background: #0b0d11;
+  color: #e6e8ec;
+  display: flex;
+  justify-content: center;
+  padding: 48px 16px;
+}
+
+main {
+  width: 100%;
+  max-width: 640px;
+}
+
+h1 {
+  font-size: 28px;
+  margin: 0 0 8px;
+}
+
+p.lede {
+  color: #9aa0aa;
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+code {
+  background: #1c1f26;
+  border: 1px solid #2a2e37;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.9em;
+}
+
+.card {
+  background: #16181d;
+  border: 1px solid #2a2e37;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.card h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.price {
+  color: #9aa0aa;
+  margin: 0 0 16px;
+}
+
+button.cta {
+  appearance: none;
+  border: 1px solid #2a2e37;
+  background: #23262d;
+  color: #e6e8ec;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+button.cta:hover {
+  background: #2a2e37;
+}

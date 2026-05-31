@@ -1,0 +1,9 @@
+node_modules
+.claude-feedback
+*.log
+.DS_Store
+
+# dist/ is committed on purpose: this repo doubles as a Claude Code plugin, and a
+# plugin install ships the built files with no build step. Run `pnpm build` before
+# committing changes to source.
+examples/*/node_modules

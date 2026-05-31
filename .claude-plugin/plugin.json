@@ -1,0 +1,13 @@
+{
+  "name": "web-feedback",
+  "description": "Comment on page elements/text in your real browser; comments land in Claude Code with a file:line source anchor.",
+  "version": "0.1.0",
+  "author": { "name": "zebapy" },
+  "homepage": "https://github.com/zebapy/claude-web-feedback-widget",
+  "mcpServers": {
+    "web-feedback": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/cli.js"]
+    }
+  }
+}

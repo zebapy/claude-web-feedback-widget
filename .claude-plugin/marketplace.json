@@ -1,0 +1,13 @@
+{
+  "name": "claude-web-feedback",
+  "owner": { "name": "zebapy" },
+  "plugins": [
+    {
+      "name": "web-feedback",
+      "source": ".",
+      "description": "Comment on page elements/text in your real browser; comments land in Claude Code with a file:line source anchor.",
+      "version": "0.1.0",
+      "author": { "name": "zebapy" }
+    }
+  ]
+}

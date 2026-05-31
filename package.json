@@ -1,0 +1,46 @@
+{
+  "name": "claude-web-feedback-widget",
+  "version": "0.1.0",
+  "description": "Dev-only browser widget to select page elements/text, comment inline, and deliver the comment into a local Claude Code chat via MCP.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "claude-web-feedback": "./dist/cli.js"
+  },
+  "exports": {
+    "./widget": {
+      "types": "./dist/widget.d.ts",
+      "import": "./dist/widget.js"
+    },
+    "./babel": "./babel-source-location.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "babel-source-location.mjs"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "serve": "node ./dist/cli.js serve"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "html2canvas-pro": "2.0.4",
+    "ws": "8.21.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "24.0.0",
+    "@types/ws": "8.5.13",
+    "tsup": "8.5.1",
+    "typescript": "5.7.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}

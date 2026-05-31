@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Claude web feedback — demo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        background: #0b0d11;
+        color: #e6e8ec;
+        display: flex;
+        justify-content: center;
+        padding: 48px 16px;
+      }
+      main {
+        width: 100%;
+        max-width: 640px;
+      }
+      h1 {
+        font-size: 28px;
+        margin: 0 0 8px;
+      }
+      p.lede {
+        color: #9aa0aa;
+        margin: 0 0 24px;
+      }
+      .card {
+        background: #16181d;
+        border: 1px solid #2a2e37;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 16px;
+      }
+      .card h2 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+      button.cta {
+        appearance: none;
+        border: 1px solid #2a2e37;
+        background: #23262d;
+        color: #e6e8ec;
+        padding: 10px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Claude web feedback — demo</h1>
+      <p class="lede">
+        Toggle the widget (bottom-right), click "Comment", then pick an element or select some text.
+      </p>
+
+      <section class="card" data-testid="pricing-card">
+        <h2>Pricing card</h2>
+        <p>This paragraph has selectable text. Try highlighting this sentence and commenting on it.</p>
+        <button class="cta" data-testid="upgrade-button">Upgrade plan</button>
+      </section>
+
+      <section class="card">
+        <h2>Another section</h2>
+        <p>Hover over different elements to see the inspector highlight and the element label.</p>
+      </section>
+    </main>
+
+    <!-- The receiver serves this and auto-inits against the port it was served from. -->
+    <script src="http://127.0.0.1:4747/widget.js"></script>
+  </body>
+</html>
