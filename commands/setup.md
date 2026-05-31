@@ -18,25 +18,44 @@ Inspect the repo before changing anything, and report what you find:
 - **Create React App / Webpack** — `public/index.html`.
 - **Plain static site** — a hand-written `index.html`.
 
-## 2. Add the widget script tag (required, minimal)
+## 2. Choose this project's port
 
-This plugin's MCP server runs a local receiver that serves the widget at
-`http://127.0.0.1:4747/widget.js`. Add it **dev-only**:
+The plugin's MCP server runs a local receiver on one port. Each project should use
+its **own** port so multiple projects don't fight over it and feedback always lands
+in the project you're working in.
+
+- Default is `4747`. If the user already uses the widget in another project, pick a
+  distinct free port (e.g. `4748`, `4749`).
+- Write it to `<project>/.claude/web-feedback.json` so the plugin's MCP server binds
+  the same port for this project (it reads `CLAUDE_PROJECT_DIR/.claude/web-feedback.json`):
+
+  ```json
+  { "port": 4748 }
+  ```
+
+Use that chosen port in every URL below. If the user is happy with `4747` and only
+uses one project, you can skip the config file (4747 is the default).
+
+## 3. Add the widget script tag (required, minimal)
+
+The receiver serves the widget at `http://127.0.0.1:<port>/widget.js`. Add it
+**dev-only**, using this project's port:
 
 - Static / Vite / CRA `index.html` — just before `</body>`:
   ```html
-  <script src="http://127.0.0.1:4747/widget.js"></script>
+  <script src="http://127.0.0.1:4748/widget.js"></script>
   ```
 - Next.js — render only in development (e.g. in `app/layout.tsx`):
   ```tsx
   {process.env.NODE_ENV === "development" && (
-    <script src="http://127.0.0.1:4747/widget.js" async />
+    <script src="http://127.0.0.1:4748/widget.js" async />
   )}
   ```
 
-This alone gives component-name + CSS-selector + screenshot anchors.
+The script tag's port and `.claude/web-feedback.json` must match. This alone gives
+component-name + CSS-selector + screenshot anchors.
 
-## 3. Offer the file:line source anchor (recommended)
+## 4. Offer the file:line source anchor (recommended)
 
 Ask the user whether they want the `file:line` source anchor (it lets Claude jump
 straight to the JSX that rendered the element). It needs a small babel plugin in
@@ -62,9 +81,11 @@ If they say yes:
    - **Next.js / Babel** — add the plugin path to the dev Babel `plugins`.
 3. Remind the user it is dev-only; do not ship it to production.
 
-## 4. Confirm and summarize
+## 5. Confirm and summarize
 
-After wiring, tell the user: start the dev server, open the app, click **Comment**
-in the widget toolbar (bottom-right), pick an element or select text, and the
-comment lands here. They can then run `/web-feedback:dispatch` or just ask you to
-"read my feedback".
+After wiring, tell the user: restart this Claude session (so the plugin's MCP
+server picks up the project port), start the dev server, open the app, press
+**⌘/Ctrl+Shift+K** (or click **Comment**), pick an element or select text, and the
+comment lands in this project's `.claude-feedback/`. They can then run
+`/web-feedback:dispatch` (handle here) or `/web-feedback:agents` (one background
+agent per comment).

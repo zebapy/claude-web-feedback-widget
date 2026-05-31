@@ -187,6 +187,22 @@ CLI flags and env vars (env takes effect as the default; flags override):
 | `--host` | `CLAUDE_WEB_FEEDBACK_HOST` | `127.0.0.1` |
 | `--dir`  | `CLAUDE_WEB_FEEDBACK_DIR`  | `./.claude-feedback` |
 
+### Per-project port
+
+One receiver owns a port, so to use the widget in **several projects at once**, give
+each its own port. The server reads it (when no flag/env is set) from a per-project
+file — `/web-feedback:setup` writes this for you:
+
+```jsonc
+// <project>/.claude/web-feedback.json
+{ "port": 4748 }
+```
+
+Point that project's `<script>` tag at the same port
+(`http://127.0.0.1:4748/widget.js`). Each project then binds its own port, serves its
+own widget, and feedback always lands in that project's `.claude-feedback/`. Port
+precedence: `--port` flag > env > this file > `4747`.
+
 Run just the receiver (no MCP, handy for trying it out):
 
 ```bash

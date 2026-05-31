@@ -1,4 +1,5 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DEFAULT_HOST, DEFAULT_PORT } from "../shared/protocol.js";
 import { createMcpServer } from "./mcp.js";
@@ -67,8 +68,13 @@ function parseArgs(argv: string[]): CliOptions {
   // prefer CLAUDE_PROJECT_DIR (set by Claude Code) for the file mirror location.
   const baseDir = process.env["CLAUDE_PROJECT_DIR"] ?? process.cwd();
 
+  // Port precedence: --port flag > env > per-project config file > default. The
+  // config file lets each project bind its own port (and serve its own widget),
+  // so feedback always lands in the project you're working in.
+  const projectPort = readProjectPort(baseDir);
+
   let host = process.env["CLAUDE_WEB_FEEDBACK_HOST"] ?? DEFAULT_HOST;
-  let port = envPort ? Number(envPort) : DEFAULT_PORT;
+  let port = envPort ? Number(envPort) : projectPort ?? DEFAULT_PORT;
   let dir = resolve(baseDir, envDir ?? ".claude-feedback");
 
   for (let index = 0; index < args.length; index += 1) {
@@ -88,6 +94,17 @@ function parseArgs(argv: string[]): CliOptions {
   }
 
   return { mode, host, port, dir };
+}
+
+// Reads `<project>/.claude/web-feedback.json` ({"port": 4748}). Regex-extracted
+// so a malformed file degrades to "no port" instead of throwing.
+function readProjectPort(baseDir: string): number | undefined {
+  const file = resolve(baseDir, ".claude", "web-feedback.json");
+  if (!existsSync(file)) return undefined;
+  const match = /"port"\s*:\s*(\d+)/.exec(readFileSync(file, "utf8"));
+  if (!match) return undefined;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : undefined;
 }
 
 function describeError(error: unknown): string {

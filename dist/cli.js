@@ -16694,6 +16694,7 @@ var StdioServerTransport = class {
 };
 
 // src/server/cli.ts
+import { existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 
 // src/shared/protocol.ts
@@ -25192,8 +25193,9 @@ function parseArgs(argv) {
   const envPort = process.env["CLAUDE_WEB_FEEDBACK_PORT"];
   const envDir = process.env["CLAUDE_WEB_FEEDBACK_DIR"];
   const baseDir = process.env["CLAUDE_PROJECT_DIR"] ?? process.cwd();
+  const projectPort = readProjectPort(baseDir);
   let host = process.env["CLAUDE_WEB_FEEDBACK_HOST"] ?? DEFAULT_HOST;
-  let port = envPort ? Number(envPort) : DEFAULT_PORT;
+  let port = envPort ? Number(envPort) : projectPort ?? DEFAULT_PORT;
   let dir = resolve(baseDir, envDir ?? ".claude-feedback");
   for (let index = 0; index < args.length; index += 1) {
     const flag = args[index];
@@ -25211,6 +25213,14 @@ function parseArgs(argv) {
     }
   }
   return { mode, host, port, dir };
+}
+function readProjectPort(baseDir) {
+  const file = resolve(baseDir, ".claude", "web-feedback.json");
+  if (!existsSync(file)) return void 0;
+  const match = /"port"\s*:\s*(\d+)/.exec(readFileSync(file, "utf8"));
+  if (!match) return void 0;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : void 0;
 }
 function describeError(error2) {
   if (error2 instanceof Error) {
