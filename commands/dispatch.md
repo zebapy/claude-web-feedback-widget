@@ -6,6 +6,11 @@ description: Read pending browser feedback and act on it, or fan it out to backg
 
 Act ONLY on comments that a tool or file actually returns. This is the hard rule.
 
+> This command handles feedback **in the current session** (doing the work here, or
+> fanning out to in-session subagents). To instead send each comment to its own
+> **background agent** that appears as a row in `claude agents`, use
+> `/web-feedback:agents`.
+
 ## Absolute guardrails (read first)
 
 - **Never invent, infer, guess, or paraphrase a comment.** The only valid feedback

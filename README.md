@@ -153,20 +153,29 @@ The widget toolbar shows a **Sent (N)** button once you submit a comment. Open i
 for a session log of every comment and its delivery state: _Sending → Sent →
 Saved ✓_ (the receiver acked and mirrored it).
 
-### Dispatching feedback to background agents
+### Acting on feedback
 
-`scripts/dispatch-feedback.mjs` turns the mirrored feedback into agent-ready task
-blocks and tracks what's already been handled in `.claude-feedback/.dispatched.json`:
+The plugin ships two slash commands, depending on how you want comments handled:
+
+- **`/web-feedback:dispatch`** — handle comments **in the current session** (do the
+  work here, or fan out to in-session subagents). Best for a quick edit while you watch.
+- **`/web-feedback:agents`** — send **each comment to its own background agent**. The
+  command runs `claude --bg --name <slug> "<comment + source anchor>"` per comment, so
+  each becomes a row in [agent view](https://code.claude.com/docs/en/agent-view)
+  (`claude agents`): it works in an isolated worktree, can open a PR, and you peek/
+  attach/review from one screen. Best for several independent comments at once.
+
+Both refuse to act when nothing is pending (they never invent feedback), and
+`agents` asks before dispatching more than a few sessions since each uses quota.
+
+For scripting, `scripts/dispatch-feedback.mjs` turns the mirrored feedback into
+agent-ready task blocks and tracks what's handled in `.claude-feedback/.dispatched.json`:
 
 ```bash
 node scripts/dispatch-feedback.mjs          # list undispatched tasks
 node scripts/dispatch-feedback.mjs --json   # machine-readable
 node scripts/dispatch-feedback.mjs --mark   # list, then mark dispatched
 ```
-
-Ask Claude to "dispatch my feedback" and it runs this, spawns one background
-subagent per task (each gets the comment plus the `file:line` source anchor), then
-marks them dispatched so reruns only pick up new comments.
 
 ## Configuration
 
