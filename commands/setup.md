@@ -87,5 +87,4 @@ After wiring, tell the user: restart this Claude session (so the plugin's MCP
 server picks up the project port), start the dev server, open the app, press
 **⌘/Ctrl+Shift+K** (or click **Comment**), pick an element or select text, and the
 comment lands in this project's `.claude-feedback/`. They can then run
-`/web-feedback:dispatch` (handle here) or `/web-feedback:agents` (one background
-agent per comment).
+`/web-feedback:run` to pick up the feedback and dispatch one background agent per comment.

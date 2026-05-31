@@ -60,8 +60,8 @@ The plugin ships two slash commands:
 
 - **`/web-feedback:setup`** — run it inside any project; it detects the framework
   and wires the widget (dev script tag + optional `file:line` babel plugin) for you.
-- **`/web-feedback:dispatch`** — pull pending comments and act on them, or fan them
-  out to one background agent per comment.
+- **`/web-feedback:run`** — pick up all pending comments and dispatch one background
+  agent per comment.
 
 > The `dist/` build output is committed so the plugin works on install. After
 > changing source, run `pnpm build` before committing.
@@ -155,18 +155,14 @@ Saved ✓_ (the receiver acked and mirrored it).
 
 ### Acting on feedback
 
-The plugin ships two slash commands, depending on how you want comments handled:
+Run **`/web-feedback:run`** — one command that picks up every pending comment and
+dispatches each as its own background agent. Per comment it runs
+`claude --bg --name <slug> "<comment + source anchor>"`, so each becomes a row in
+[agent view](https://code.claude.com/docs/en/agent-view) (`claude agents`): it works
+in an isolated worktree, can open a PR, and you peek/attach/review from one screen.
 
-- **`/web-feedback:dispatch`** — handle comments **in the current session** (do the
-  work here, or fan out to in-session subagents). Best for a quick edit while you watch.
-- **`/web-feedback:agents`** — send **each comment to its own background agent**. The
-  command runs `claude --bg --name <slug> "<comment + source anchor>"` per comment, so
-  each becomes a row in [agent view](https://code.claude.com/docs/en/agent-view)
-  (`claude agents`): it works in an isolated worktree, can open a PR, and you peek/
-  attach/review from one screen. Best for several independent comments at once.
-
-Both refuse to act when nothing is pending (they never invent feedback), and
-`agents` asks before dispatching more than a few sessions since each uses quota.
+It refuses to act when nothing is pending (it never invents feedback) and asks before
+dispatching more than a few sessions, since each uses quota.
 
 For scripting, `scripts/dispatch-feedback.mjs` turns the mirrored feedback into
 agent-ready task blocks and tracks what's handled in `.claude-feedback/.dispatched.json`:
