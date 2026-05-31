@@ -10249,7 +10249,7 @@ function showCommentForm(options) {
     placeholder: "Describe the change or issue\u2026"
   });
   const checkbox = el("input", { type: "checkbox" });
-  checkbox.checked = options.screenshotAvailable;
+  checkbox.checked = false;
   checkbox.disabled = !options.screenshotAvailable;
   const checkboxLabel = el("label", { class: "form-check" }, [checkbox, "Include screenshot"]);
   const cancelButton = el("button", { type: "button", class: "button" }, ["Cancel"]);
@@ -10606,7 +10606,8 @@ function showHint(root, message) {
 // src/widget/ui/toolbar.ts
 function createToolbar(options) {
   const dot = el("span", { class: "status-dot", "data-connected": "false", title: "Receiver offline" });
-  const button = el("button", { class: "button button--primary", type: "button" }, ["Comment"]);
+  const commentTitle = options.hotkeyLabel ? `Comment (${options.hotkeyLabel})` : "Comment";
+  const button = el("button", { class: "button button--primary", type: "button", title: commentTitle }, ["Comment"]);
   const sentButton = el("button", { class: "button", type: "button", hidden: "" }, ["Sent"]);
   const bar = el("div", { class: "toolbar" }, [dot, button, sentButton]);
   button.addEventListener("click", () => options.onToggleInspect());
@@ -10743,11 +10744,21 @@ function init(options = {}) {
     root: host.root,
     onCountChange: (count) => toolbar.setSentCount(count)
   });
+  const hotkey = parseHotkey(options.hotkey ?? "mod+shift+k");
   const toolbar = createToolbar({
     root: host.root,
     onToggleInspect: toggleInspect,
-    onToggleActivity: () => activity.toggle()
+    onToggleActivity: () => activity.toggle(),
+    hotkeyLabel: hotkey ? formatHotkey(hotkey) : void 0
   });
+  function onHotkey(event) {
+    if (!hotkey || !matchesHotkey(event, hotkey)) return;
+    if (isEditable(document.activeElement)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    toggleInspect();
+  }
+  window.addEventListener("keydown", onHotkey, true);
   const inspector = createInspector({
     root: host.root,
     hostElement: host.hostElement,
@@ -10759,6 +10770,7 @@ function init(options = {}) {
   transport.connect();
   activeHandle = {
     destroy() {
+      window.removeEventListener("keydown", onHotkey, true);
       exitInspect();
       closeForm();
       transport.disconnect();
@@ -10767,6 +10779,32 @@ function init(options = {}) {
     }
   };
   return activeHandle;
+}
+function parseHotkey(spec) {
+  const parts = spec.toLowerCase().split("+").map((part) => part.trim()).filter(Boolean);
+  const key = parts.at(-1);
+  if (!key) return null;
+  const isMod = (part) => part === "mod" || part === "cmd" || part === "ctrl" || part === "meta";
+  return { key, shift: parts.includes("shift"), mod: parts.some(isMod) };
+}
+function matchesHotkey(event, hotkey) {
+  if (event.key.toLowerCase() !== hotkey.key) return false;
+  if (event.shiftKey !== hotkey.shift) return false;
+  return (event.metaKey || event.ctrlKey) === hotkey.mod;
+}
+function formatHotkey(hotkey) {
+  const mac = navigator.userAgent.includes("Mac");
+  const parts = [];
+  if (hotkey.mod) parts.push(mac ? "\u2318" : "Ctrl");
+  if (hotkey.shift) parts.push(mac ? "\u21E7" : "Shift");
+  parts.push(hotkey.key.toUpperCase());
+  return parts.join(mac ? "" : "+");
+}
+function isEditable(element) {
+  if (!element) return false;
+  const tag = element.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return element.isContentEditable;
 }
 function nearestElement(node) {
   if (node.nodeType === Node.ELEMENT_NODE) return node;

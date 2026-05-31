@@ -33,7 +33,7 @@ export function showCommentForm(options: CommentFormOptions): CommentForm {
   });
 
   const checkbox = el("input", { type: "checkbox" });
-  checkbox.checked = options.screenshotAvailable;
+  checkbox.checked = false; // opt-in: screenshots are off unless the user ticks the box
   checkbox.disabled = !options.screenshotAvailable;
   const checkboxLabel = el("label", { class: "form-check" }, [checkbox, "Include screenshot"]);
 

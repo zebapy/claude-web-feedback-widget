@@ -1,6 +1,7 @@
 interface WidgetOptions {
     host?: string;
     port?: number;
+    hotkey?: string;
 }
 interface WidgetHandle {
     destroy: () => void;

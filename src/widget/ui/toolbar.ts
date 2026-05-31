@@ -4,6 +4,7 @@ export interface ToolbarOptions {
   root: ShadowRoot;
   onToggleInspect: () => void;
   onToggleActivity: () => void;
+  hotkeyLabel?: string;
 }
 
 export interface Toolbar {
@@ -14,7 +15,8 @@ export interface Toolbar {
 
 export function createToolbar(options: ToolbarOptions): Toolbar {
   const dot = el("span", { class: "status-dot", "data-connected": "false", title: "Receiver offline" });
-  const button = el("button", { class: "button button--primary", type: "button" }, ["Comment"]);
+  const commentTitle = options.hotkeyLabel ? `Comment (${options.hotkeyLabel})` : "Comment";
+  const button = el("button", { class: "button button--primary", type: "button", title: commentTitle }, ["Comment"]);
   const sentButton = el("button", { class: "button", type: "button", hidden: "" }, ["Sent"]);
   const bar = el("div", { class: "toolbar" }, [dot, button, sentButton]);
 

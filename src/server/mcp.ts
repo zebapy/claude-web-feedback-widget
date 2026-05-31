@@ -26,7 +26,7 @@ export function createMcpServer(store: Store): McpServer {
       description: "Return and clear all feedback the widget has sent but Claude has not yet read.",
       inputSchema: {}
     },
-    async () => textResult(formatFeedback(store.takePending()))
+    async () => textResult(formatFeedback(await store.takePending()))
   );
 
   server.registerTool(
@@ -54,7 +54,7 @@ export function createMcpServer(store: Store): McpServer {
       description: "Discard all pending feedback without reading it.",
       inputSchema: {}
     },
-    async () => textResult(`Cleared ${store.clearPending()} pending item(s).`)
+    async () => textResult(`Cleared ${await store.clearPending()} pending item(s).`)
   );
 
   return server;

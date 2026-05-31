@@ -34,6 +34,7 @@ async function runServe(store: ReturnType<typeof createStore>, options: CliOptio
   const log = (message: string): void => {
     process.stdout.write(`[claude-web-feedback] ${message}\n`);
   };
+  await store.startWatching();
   const receiver = await startReceiver({ store, host: options.host, port: options.port, log });
   process.stdout.write(
     `\nAdd this to your dev page (or import { init } from \"claude-web-feedback-widget/widget\"):\n` +
@@ -47,6 +48,7 @@ async function runMcp(store: ReturnType<typeof createStore>, options: CliOptions
   const log = (message: string): void => {
     process.stderr.write(`[claude-web-feedback] ${message}\n`);
   };
+  await store.startWatching();
   await startReceiver({ store, host: options.host, port: options.port, log });
   const server = createMcpServer(store);
   await server.connect(new StdioServerTransport());

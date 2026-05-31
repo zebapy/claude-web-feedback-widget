@@ -17,6 +17,7 @@ export interface ReceiverOptions {
 
 export interface Receiver {
   url: string;
+  bound: boolean;
   close: () => Promise<void>;
 }
 
@@ -24,24 +25,76 @@ const widgetBundlePath = join(dirname(fileURLToPath(import.meta.url)), "widget.g
 
 export async function startReceiver(options: ReceiverOptions): Promise<Receiver> {
   const { store, host, port, log } = options;
-  const widgetSource = await readFile(widgetBundlePath, "utf8");
+  const widgetSource = await readFile(widgetBundlePath, "utf8").catch(
+    () => "/* widget bundle missing — run pnpm build */"
+  );
 
   const server = createServer((request, response) => handleHttp(request, response, store, widgetSource));
   const sockets = new WebSocketServer({ server });
   sockets.on("connection", (socket, request) => handleConnection(socket, request, store, log));
 
-  await listen(server, host, port);
   const url = `http://${host}:${port}`;
-  log(`receiver listening on ${url}`);
+
+  // A failed bind must NOT kill the process: another Claude session may already
+  // own the port. `ws` re-emits the http server's listen error on the
+  // WebSocketServer, so both need a handler or the 'error' event goes unhandled.
+  const bound = await bindServer({ server, sockets, host, port, url, log });
+
+  if (!bound) {
+    sockets.close();
+    server.close();
+  }
 
   return {
     url,
+    bound,
     close: () =>
       new Promise<void>((resolve) => {
         sockets.close();
         server.close(() => resolve());
       })
   };
+}
+
+function bindServer(args: {
+  server: ReturnType<typeof createServer>;
+  sockets: WebSocketServer;
+  host: string;
+  port: number;
+  url: string;
+  log: (message: string) => void;
+}): Promise<boolean> {
+  const { server, sockets, host, port, url, log } = args;
+  return new Promise((resolve) => {
+    let settled = false;
+
+    function onError(error: unknown): void {
+      if (settled) return;
+      settled = true;
+      log(
+        `could not bind ${host}:${port} (${describeListenError(error)}). ` +
+          `Another session likely owns the receiver; reading feedback from the file mirror instead.`
+      );
+      resolve(false);
+    }
+
+    server.once("error", onError);
+    sockets.once("error", onError);
+    server.listen(port, host, () => {
+      if (settled) return;
+      settled = true;
+      server.off("error", onError);
+      sockets.off("error", onError);
+      log(`receiver listening on ${url}`);
+      resolve(true);
+    });
+  });
+}
+
+function describeListenError(error: unknown): string {
+  const code = (error as NodeJS.ErrnoException).code;
+  if (code === "EADDRINUSE") return "address in use";
+  return error instanceof Error ? error.message : String(error);
 }
 
 function handleHttp(
@@ -125,14 +178,4 @@ function isLocalOrigin(origin: string | undefined): boolean {
   if (!URL.canParse(origin)) return false;
   const hostname = new URL(origin).hostname;
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]";
-}
-
-function listen(server: ReturnType<typeof createServer>, host: string, port: number): Promise<void> {
-  return new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(port, host, () => {
-      server.off("error", reject);
-      resolve();
-    });
-  });
 }

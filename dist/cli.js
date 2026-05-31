@@ -24813,7 +24813,7 @@ function createMcpServer(store) {
       description: "Return and clear all feedback the widget has sent but Claude has not yet read.",
       inputSchema: {}
     },
-    async () => textResult(formatFeedback(store.takePending()))
+    async () => textResult(formatFeedback(await store.takePending()))
   );
   server.registerTool(
     "wait_for_feedback",
@@ -24838,7 +24838,7 @@ function createMcpServer(store) {
       description: "Discard all pending feedback without reading it.",
       inputSchema: {}
     },
-    async () => textResult(`Cleared ${store.clearPending()} pending item(s).`)
+    async () => textResult(`Cleared ${await store.clearPending()} pending item(s).`)
   );
   return server;
 }
@@ -24912,20 +24912,55 @@ var import_websocket_server = __toESM(require_websocket_server(), 1);
 var widgetBundlePath = join(dirname(fileURLToPath(import.meta.url)), "widget.global.js");
 async function startReceiver(options) {
   const { store, host, port, log } = options;
-  const widgetSource = await readFile(widgetBundlePath, "utf8");
+  const widgetSource = await readFile(widgetBundlePath, "utf8").catch(
+    () => "/* widget bundle missing \u2014 run pnpm build */"
+  );
   const server = createServer((request, response) => handleHttp(request, response, store, widgetSource));
   const sockets = new import_websocket_server.default({ server });
   sockets.on("connection", (socket, request) => handleConnection(socket, request, store, log));
-  await listen(server, host, port);
   const url = `http://${host}:${port}`;
-  log(`receiver listening on ${url}`);
+  const bound = await bindServer({ server, sockets, host, port, url, log });
+  if (!bound) {
+    sockets.close();
+    server.close();
+  }
   return {
     url,
+    bound,
     close: () => new Promise((resolve2) => {
       sockets.close();
       server.close(() => resolve2());
     })
   };
+}
+function bindServer(args) {
+  const { server, sockets, host, port, url, log } = args;
+  return new Promise((resolve2) => {
+    let settled = false;
+    function onError(error2) {
+      if (settled) return;
+      settled = true;
+      log(
+        `could not bind ${host}:${port} (${describeListenError(error2)}). Another session likely owns the receiver; reading feedback from the file mirror instead.`
+      );
+      resolve2(false);
+    }
+    server.once("error", onError);
+    sockets.once("error", onError);
+    server.listen(port, host, () => {
+      if (settled) return;
+      settled = true;
+      server.off("error", onError);
+      sockets.off("error", onError);
+      log(`receiver listening on ${url}`);
+      resolve2(true);
+    });
+  });
+}
+function describeListenError(error2) {
+  const code = error2.code;
+  if (code === "EADDRINUSE") return "address in use";
+  return error2 instanceof Error ? error2.message : String(error2);
 }
 function handleHttp(request, response, store, widgetSource) {
   response.setHeader("Access-Control-Allow-Origin", "*");
@@ -24986,35 +25021,50 @@ function isLocalOrigin(origin) {
   const hostname2 = new URL(origin).hostname;
   return hostname2 === "localhost" || hostname2 === "127.0.0.1" || hostname2 === "::1" || hostname2 === "[::1]";
 }
-function listen(server, host, port) {
-  return new Promise((resolve2, reject) => {
-    server.once("error", reject);
-    server.listen(port, host, () => {
-      server.off("error", reject);
-      resolve2();
-    });
-  });
-}
 
 // src/server/store.ts
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, writeFile, readFile as readFile2, readdir } from "fs/promises";
+import { watch } from "fs";
 import { randomUUID } from "crypto";
 import { join as join2 } from "path";
 function createStore(options) {
   const { feedbackDir } = options;
   const screenshotDir = join2(feedbackDir, "screenshots");
-  const pending = [];
+  const seen = /* @__PURE__ */ new Set();
   const clients = /* @__PURE__ */ new Map();
   const waiters = [];
+  let watcher = null;
+  let lock = Promise.resolve();
+  function serialize(task) {
+    const run = lock.then(task, task);
+    lock = run.then(noop, noop);
+    return run;
+  }
+  async function readAll() {
+    const names = await readdir(feedbackDir).catch(() => []);
+    const jsonNames = names.filter((name) => name.endsWith(".json") && !name.startsWith(".")).sort();
+    const items = [];
+    for (const name of jsonNames) {
+      const raw = await readFile2(join2(feedbackDir, name), "utf8").catch(() => null);
+      if (raw) items.push(JSON.parse(raw));
+    }
+    return items;
+  }
+  function consumeUnseen() {
+    return serialize(async () => {
+      const fresh = (await readAll()).filter((item) => !seen.has(item.id));
+      for (const item of fresh) seen.add(item.id);
+      return fresh;
+    });
+  }
   async function addFeedback(input) {
     const id = randomUUID();
     const createdAt = (/* @__PURE__ */ new Date()).toISOString();
     const screenshotPath = await persistScreenshot(id, input.screenshot);
     const { screenshot: _ignored, ...rest } = input;
     const feedback = { ...rest, id, createdAt, screenshotPath };
-    pending.push(feedback);
     await writeFeedbackFile(feedback);
-    flushWaiters();
+    notifyWaiters();
     return feedback;
   }
   async function persistScreenshot(id, dataUrl) {
@@ -25033,36 +25083,45 @@ function createStore(options) {
     await writeFile(path, `${JSON.stringify(feedback, null, 2)}
 `);
   }
-  function flushWaiters() {
-    if (waiters.length === 0 || pending.length === 0) return;
-    const items = takePending();
-    const pendingWaiters = waiters.splice(0, waiters.length);
-    for (const resolve2 of pendingWaiters) resolve2(items);
-  }
-  function takePending() {
-    return pending.splice(0, pending.length);
+  function notifyWaiters() {
+    if (waiters.length === 0) return;
+    consumeUnseen().then((items) => {
+      if (items.length === 0) return;
+      const pendingWaiters = waiters.splice(0, waiters.length);
+      for (const resolve2 of pendingWaiters) resolve2(items);
+    });
   }
   function waitForFeedback(timeoutMs) {
-    if (pending.length > 0) return Promise.resolve(takePending());
-    return new Promise((resolve2) => {
-      const timer = setTimeout(() => {
-        const index = waiters.indexOf(deliver);
-        if (index >= 0) waiters.splice(index, 1);
-        resolve2([]);
-      }, timeoutMs);
-      function deliver(items) {
-        clearTimeout(timer);
-        resolve2(items);
-      }
-      waiters.push(deliver);
+    return consumeUnseen().then((immediate) => {
+      if (immediate.length > 0) return immediate;
+      return new Promise((resolve2) => {
+        const timer = setTimeout(() => {
+          const index = waiters.indexOf(deliver);
+          if (index >= 0) waiters.splice(index, 1);
+          resolve2([]);
+        }, timeoutMs);
+        function deliver(items) {
+          clearTimeout(timer);
+          resolve2(items);
+        }
+        waiters.push(deliver);
+      });
     });
+  }
+  async function startWatching() {
+    await mkdir(feedbackDir, { recursive: true }).catch(noop);
+    await serialize(async () => {
+      for (const item of await readAll()) seen.add(item.id);
+    });
+    watcher = watch(feedbackDir, () => notifyWaiters());
+    watcher.on("error", noop);
   }
   return {
     addFeedback,
-    takePending,
-    peekPending: () => pending.slice(),
-    clearPending: () => takePending().length,
+    takePending: consumeUnseen,
+    clearPending: () => consumeUnseen().then((items) => items.length),
     waitForFeedback,
+    startWatching,
     markClientSeen(clientId, page) {
       clients.set(clientId, { clientId, page, lastSeen: (/* @__PURE__ */ new Date()).toISOString() });
     },
@@ -25075,6 +25134,8 @@ function createStore(options) {
     },
     feedbackDir
   };
+}
+function noop() {
 }
 function decodePngDataUrl(dataUrl) {
   const match = /^data:image\/png;base64,(.+)$/.exec(dataUrl);
@@ -25103,6 +25164,7 @@ async function runServe(store, options) {
     process.stdout.write(`[claude-web-feedback] ${message}
 `);
   };
+  await store.startWatching();
   const receiver = await startReceiver({ store, host: options.host, port: options.port, log });
   process.stdout.write(
     `
@@ -25118,6 +25180,7 @@ async function runMcp(store, options) {
     process.stderr.write(`[claude-web-feedback] ${message}
 `);
   };
+  await store.startWatching();
   await startReceiver({ store, host: options.host, port: options.port, log });
   const server = createMcpServer(store);
   await server.connect(new StdioServerTransport());

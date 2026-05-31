@@ -125,10 +125,14 @@ connect as soon as Claude Code launches the server.
 ## 3. Use it
 
 1. Start your app's dev server and open it in your browser.
-2. Click **Comment** in the widget toolbar (bottom-right), then click an element
-   or select text. Type a comment and **Send to Claude**.
+2. Click **Comment** in the widget toolbar (bottom-right) — or press the hotkey
+   **⌘/Ctrl+Shift+K** — then click an element or select text. Type a comment and
+   **Send to Claude**. (Screenshots are opt-in: tick the box to include one.)
 3. In Claude Code, ask it to read your feedback. It calls `wait_for_feedback`
    (or `get_pending_feedback`) and receives the comment plus the source anchor.
+
+The hotkey is configurable: `init({ hotkey: "mod+shift+k" })` (`mod` = ⌘/Ctrl),
+or pass `""` to disable it.
 
 ## MCP tools
 
@@ -189,6 +193,11 @@ npx claude-web-feedback serve
 - **Loopback only.** The receiver binds `127.0.0.1` and accepts WebSocket
   connections from localhost origins only. It is unauthenticated by design (a
   local dev tool); do not expose the port.
+- **One receiver per port.** Only one Claude session can own port 4747. If you run
+  the plugin in a second session, that session can't bind the port — it stays up
+  (no crash) and reads feedback from the shared file mirror. The browser connects
+  to whichever session owns the port, and its comments mirror to that project's
+  `.claude-feedback/`.
 - **Clicks are suppressed in pick mode** so the host page doesn't navigate.
   Element pick = click; text pick = drag-select.
 

@@ -19,6 +19,9 @@ import { createToolbar } from "./ui/toolbar.js";
 export interface WidgetOptions {
   host?: string;
   port?: number;
+  // Keyboard shortcut to start/cancel a comment, e.g. "mod+shift+k" (mod = ⌘/Ctrl).
+  // Pass an empty string to disable. Defaults to "mod+shift+k".
+  hotkey?: string;
 }
 
 export interface WidgetHandle {
@@ -161,11 +164,22 @@ export function init(options: WidgetOptions = {}): WidgetHandle {
     root: host.root,
     onCountChange: (count) => toolbar.setSentCount(count)
   });
+  const hotkey = parseHotkey(options.hotkey ?? "mod+shift+k");
   const toolbar = createToolbar({
     root: host.root,
     onToggleInspect: toggleInspect,
-    onToggleActivity: () => activity.toggle()
+    onToggleActivity: () => activity.toggle(),
+    hotkeyLabel: hotkey ? formatHotkey(hotkey) : undefined
   });
+
+  function onHotkey(event: KeyboardEvent): void {
+    if (!hotkey || !matchesHotkey(event, hotkey)) return;
+    if (isEditable(document.activeElement)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    toggleInspect();
+  }
+  window.addEventListener("keydown", onHotkey, true);
   const inspector = createInspector({
     root: host.root,
     hostElement: host.hostElement,
@@ -179,6 +193,7 @@ export function init(options: WidgetOptions = {}): WidgetHandle {
 
   activeHandle = {
     destroy(): void {
+      window.removeEventListener("keydown", onHotkey, true);
       exitInspect();
       closeForm();
       transport.disconnect();
@@ -187,6 +202,42 @@ export function init(options: WidgetOptions = {}): WidgetHandle {
     }
   };
   return activeHandle;
+}
+
+interface Hotkey {
+  key: string;
+  shift: boolean;
+  mod: boolean;
+}
+
+function parseHotkey(spec: string): Hotkey | null {
+  const parts = spec.toLowerCase().split("+").map((part) => part.trim()).filter(Boolean);
+  const key = parts.at(-1);
+  if (!key) return null;
+  const isMod = (part: string): boolean => part === "mod" || part === "cmd" || part === "ctrl" || part === "meta";
+  return { key, shift: parts.includes("shift"), mod: parts.some(isMod) };
+}
+
+function matchesHotkey(event: KeyboardEvent, hotkey: Hotkey): boolean {
+  if (event.key.toLowerCase() !== hotkey.key) return false;
+  if (event.shiftKey !== hotkey.shift) return false;
+  return (event.metaKey || event.ctrlKey) === hotkey.mod;
+}
+
+function formatHotkey(hotkey: Hotkey): string {
+  const mac = navigator.userAgent.includes("Mac");
+  const parts: string[] = [];
+  if (hotkey.mod) parts.push(mac ? "⌘" : "Ctrl");
+  if (hotkey.shift) parts.push(mac ? "⇧" : "Shift");
+  parts.push(hotkey.key.toUpperCase());
+  return parts.join(mac ? "" : "+");
+}
+
+function isEditable(element: Element | null): boolean {
+  if (!element) return false;
+  const tag = element.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return (element as HTMLElement).isContentEditable;
 }
 
 function nearestElement(node: Node): Element {
